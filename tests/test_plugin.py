@@ -81,21 +81,31 @@ class TestPluginRegistration:
 
     def test_rtk_path_passed_to_compress_output(self, mock_plugin_context):
         """rtk_path from config should be passed through."""
-        mock_plugin_context.config["rtk_path"] = "/custom/bin/rtk"
-        with patch("hermes_rtkit.plugin.compress_output") as mock_compress:
-            mock_compress.return_value = "compressed"
-            register(mock_plugin_context)
-            hook_func = mock_plugin_context.register_hook.call_args[0][1]
+        cfg = {
+            "plugins": {
+                "hermes-rtkit": {
+                    "enabled": True,
+                    "verbose": False,
+                    "rtk_path": "/custom/bin/rtk",
+                    "exclude_commands": [],
+                }
+            }
+        }
+        with patch("hermes_rtkit.plugin.load_config", return_value=cfg):
+            with patch("hermes_rtkit.plugin.compress_output") as mock_compress:
+                mock_compress.return_value = "compressed"
+                register(mock_plugin_context)
+                hook_func = mock_plugin_context.register_hook.call_args[0][1]
 
-            hook_func(
-                command="cargo test",
-                output="raw output",
-                returncode=0,
-                task_id="test-task",
-                env_type="local",
-            )
+                hook_func(
+                    command="cargo test",
+                    output="raw output",
+                    returncode=0,
+                    task_id="test-task",
+                    env_type="local",
+                )
 
-            assert mock_compress.call_args[1]["rtk_path"] == "/custom/bin/rtk"
+                assert mock_compress.call_args[1]["rtk_path"] == "/custom/bin/rtk"
 
     def test_verbose_logs_compression_event(self, mock_plugin_context_verbose):
         """verbose=True should print compression stats."""
@@ -137,24 +147,24 @@ class TestPluginRegistration:
     def test_empty_config_uses_defaults(self):
         """Empty config should use default values."""
         ctx = MagicMock()
-        ctx.config = {}
-        with patch("hermes_rtkit.plugin.compress_output") as mock_compress:
-            mock_compress.return_value = "result"
-            register(ctx)
-            hook_func = ctx.register_hook.call_args[0][1]
-            hook_func("cargo test", "raw", 0, "t", "local")
-            assert mock_compress.call_args[1]["enabled"] is True
-            assert mock_compress.call_args[1]["rtk_path"] == "rtk"
-            assert mock_compress.call_args[1]["exclude_commands"] == []
+        with patch("hermes_rtkit.plugin.load_config", return_value={}):
+            with patch("hermes_rtkit.plugin.compress_output") as mock_compress:
+                mock_compress.return_value = "result"
+                register(ctx)
+                hook_func = ctx.register_hook.call_args[0][1]
+                hook_func("cargo test", "raw", 0, "t", "local")
+                assert mock_compress.call_args[1]["enabled"] is True
+                assert mock_compress.call_args[1]["rtk_path"] == "rtk"
+                assert mock_compress.call_args[1]["exclude_commands"] == []
 
     def test_none_config_uses_defaults(self):
         """None config should use default values."""
         ctx = MagicMock()
-        ctx.config = None
-        with patch("hermes_rtkit.plugin.compress_output") as mock_compress:
-            mock_compress.return_value = "result"
-            register(ctx)
-            hook_func = ctx.register_hook.call_args[0][1]
-            hook_func("cargo test", "raw", 0, "t", "local")
-            assert mock_compress.call_args[1]["enabled"] is True
-            assert mock_compress.call_args[1]["rtk_path"] == "rtk"
+        with patch("hermes_rtkit.plugin.load_config", return_value={}):
+            with patch("hermes_rtkit.plugin.compress_output") as mock_compress:
+                mock_compress.return_value = "result"
+                register(ctx)
+                hook_func = ctx.register_hook.call_args[0][1]
+                hook_func("cargo test", "raw", 0, "t", "local")
+                assert mock_compress.call_args[1]["enabled"] is True
+                assert mock_compress.call_args[1]["rtk_path"] == "rtk"

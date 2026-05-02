@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hermes_cli.plugins import PluginContext
 
+from hermes_cli.config import load_config
+
 # Supported commands mapped to their RTK filter names
 RTK_FILTER_MAP: dict[str, str] = {
     "cargo": "cargo-test",
@@ -72,31 +74,18 @@ SUBCOMMAND_FILTERS: dict[tuple[str, str], str] = {
 
 
 def get_rtk_filter(command: str) -> Optional[str]:
-    """Determine the RTK filter name for a given command.
-
-    Args:
-        command: The full terminal command string (e.g., "cargo test --lib")
-
-    Returns:
-        RTK filter name (e.g., "cargo-test") or None if not supported.
-    """
+    """Determine the RTK filter name for a given command."""
     if not command:
         return None
-
     parts = command.strip().split()
     if not parts:
         return None
-
     cmd_base = parts[0]
     subcmd = parts[1] if len(parts) > 1 else None
-
-    # Check subcommand-specific filters first
     if subcmd:
         filter_name = SUBCOMMAND_FILTERS.get((cmd_base, subcmd))
         if filter_name:
             return filter_name
-
-    # Fall back to base-command filter
     return RTK_FILTER_MAP.get(cmd_base)
 
 
@@ -113,42 +102,23 @@ def compress_output(
     rtk_path: str = "rtk",
     timeout: float = 2.0,
 ) -> str:
-    """Compress terminal output using RTK if available and command is supported.
-
-    Args:
-        command: The executed terminal command
-        output: Raw stdout/stderr from command
-        enabled: Whether compression is enabled
-        exclude_commands: List of command names to skip compression
-        rtk_path: Path to RTK binary
-        timeout: Timeout for RTK call in seconds
-
-    Returns:
-        Compressed output if RTK succeeds, otherwise original output.
-    """
+    """Compress terminal output using RTK if available and command is supported."""
     if not enabled:
         return output
-
     if exclude_commands is None:
         exclude_commands = []
-
     if not command:
         return output
-
     cmd_base = command.strip().split()[0]
     if cmd_base in exclude_commands:
         return output
-
     filter_name = get_rtk_filter(command)
     if not filter_name:
         return output
-
     if not shutil.which(rtk_path):
         return output
-
     if not output or not output.strip():
         return output
-
     try:
         result = subprocess.run(
             [rtk_path, "pipe", "-f", filter_name],
@@ -169,11 +139,19 @@ def compress_output(
 
 def register(ctx: "PluginContext") -> None:
     """Register the transform_terminal_output hook with Hermes."""
-    config = ctx.config or {}
-    enabled = config.get("enabled", True)
-    verbose = config.get("verbose", False)
-    rtk_path = config.get("rtk_path", "rtk")
-    exclude_commands = config.get("exclude_commands", [])
+    # Get per-plugin config from config.yaml: plugins.hermes-rtkit.*
+    plugin_cfg = {}
+    try:
+        full_cfg = load_config()
+        plugins_cfg = full_cfg.get("plugins") or {}
+        plugin_cfg = plugins_cfg.get("hermes-rtkit") or {}
+    except Exception:
+        pass
+
+    enabled = plugin_cfg.get("enabled", True)
+    verbose = plugin_cfg.get("verbose", False)
+    rtk_path = plugin_cfg.get("rtk_path", "rtk")
+    exclude_commands = plugin_cfg.get("exclude_commands", [])
 
     def transform_terminal_output(
         command: str,
