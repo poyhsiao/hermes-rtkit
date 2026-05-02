@@ -1,5 +1,5 @@
 \
-"""Unit tests for hermes_rtkit.compression module."""
+"""Unit tests for hermes_rtkit compression functions."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hermes_rtkit.compression import (
+from hermes_rtkit.plugin import (
     compress_output,
     get_rtk_filter,
     is_supported_command,
