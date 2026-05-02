@@ -1,5 +1,5 @@
 name: hermes-rtkit
-version: 0.1.0
+version: 0.1.1
 description: RTK integration for Hermes Agent — compress terminal outputs, save 60-90% tokens
 license: Apache-2.0
 author: Kim Hsiao
